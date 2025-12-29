@@ -1,7 +1,7 @@
 # 📇 Contact Connector
 
 **Contact Connector** é uma aplicação web que permite gerar **links personalizados do WhatsApp** a partir de uma lista de contatos em Excel ou CSV.  
-Ideal para comunicação rápida, organizada e personalizada.
+Ideal para uma comunicação rápida, organizada e personalizada.
 
 🔗 **Acesse o projeto:**  
 https://luccasfsilva.github.io/ContactConnector/
@@ -28,7 +28,7 @@ https://luccasfsilva.github.io/ContactConnector/
 
 2. **Informe seu número do WhatsApp (opcional)**
    - Se preenchido, a conversa será iniciada por você
-   - Se vazio, o link abrirá direto no contato
+   - Se não for preenchido, o link abrirá diretamente no contato
 
 3. **Digite a mensagem**
    - Utilize `{name}` para personalizar automaticamente cada mensagem
@@ -37,17 +37,20 @@ https://luccasfsilva.github.io/ContactConnector/
 
 5. **Clique em “Gerar Links”**
 
-6. **Faça o download do CSV com todos os links**
+6. **Faça o download do CSV com todos os links gerados**
 
 ---
+
 ## 🗂 Estrutura do Projeto
 
+```text
 📦 ContactConnector
 ├── index.html        # Página principal
 ├── css/              # Estilos da aplicação
 ├── js/               # Lógica de leitura e geração dos links
 ├── assets/           # Imagens e ícones
 └── README.md         # Documentação
+
 
 ## ✉️ Exemplo de Mensagem
 
