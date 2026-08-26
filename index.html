@@ -262,6 +262,35 @@
             color: #25D366;
         }
 
+        /* Botões de ação */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .action-buttons .generate-btn {
+            padding: 10px 25px;
+            font-size: 1rem;
+            background: #3498db;
+            box-shadow: none;
+        }
+
+        .action-buttons .clear-btn {
+            padding: 10px 25px;
+        }
+
+        #manualStatus {
+            margin-top: 10px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        #manualStatus.error {
+            color: #e74c3c;
+        }
+
         /* Seção de geração */
         .generate-section {
             text-align: center;
@@ -502,7 +531,7 @@
     <div class="container">
         <header class="header">
             <h1><i class="fas fa-link"></i> Conector de Contatos</h1>
-            <p class="subtitle">Faça o upload do seu Excel/CSV, crie sua mensagem e gere links personalizados para o WhatsApp instantaneamente!</p>
+            <p class="subtitle">Faça o upload do seu Excel/CSV, adicione contatos manualmente, crie sua mensagem e gere links personalizados para o WhatsApp instantaneamente!</p>
         </header>
 
         <main class="main-content">
@@ -537,6 +566,30 @@
                         </table>
                     </div>
                 </div>
+            </section>
+
+            <!-- Passo 1.5: Adicionar contatos manualmente -->
+            <section class="step">
+                <h2>
+                    <span class="step-number">1.5</span> 
+                    Adicionar contatos manualmente <span class="optional">(Opcional)</span>
+                </h2>
+                <p style="margin-bottom: 15px; color: #555;">
+                    Insira abaixo os contatos que não estão no arquivo. 
+                    Digite um nome e um telefone por linha, separados por vírgula.
+                </p>
+                <div class="input-group" style="align-items: stretch; flex-direction: column;">
+                    <textarea id="manualContacts" rows="4" placeholder="Exemplo:&#10;João Silva,5511987654321&#10;Maria Oliveira,5511998765432" style="width: 100%; border: 1px solid #ddd; border-radius: 5px; padding: 10px; font-family: inherit;"></textarea>
+                </div>
+                <div class="action-buttons">
+                    <button id="addManualBtn" class="generate-btn" style="padding: 10px 25px; font-size: 1rem; background: #3498db; box-shadow: none;">
+                        <i class="fas fa-plus"></i> Adicionar contatos
+                    </button>
+                    <button id="clearManualBtn" class="clear-btn" style="padding: 10px 25px;">
+                        <i class="fas fa-times"></i> Limpar manuais
+                    </button>
+                </div>
+                <p id="manualStatus" class="note"></p>
             </section>
 
             <!-- Passo 2: Número WhatsApp -->
@@ -608,19 +661,20 @@
             </section>
         </main>
 
-       <footer class="footer">
-    <p>
-        Feito por  <a href="https://github.com/luccasfsilva" target="_blank" rel="noopener noreferrer"> Lucas Fernandes </a>  para facilitar sua comunicação via WhatsApp </p>
-    <p class="github-link">
-        <i class="fab fa-github"></i> Hospedado no GitHub Pages
-    </p>
-</footer>
-
+        <footer class="footer">
+            <p>
+                Feito por  <a href="https://github.com/luccasfsilva" target="_blank" rel="noopener noreferrer"> Lucas Fernandes </a>  para facilitar sua comunicação via WhatsApp
+            </p>
+            <p class="github-link">
+                <i class="fab fa-github"></i> Hospedado no GitHub Pages
+            </p>
+        </footer>
     </div>
 
     <script>
         // Variáveis globais
         let contacts = [];
+        let manualContactsList = [];
         let currentFile = null;
 
         // Elementos DOM
@@ -639,6 +693,12 @@
         const resultsList = document.getElementById('resultsList');
         const resultsCount = document.getElementById('resultsCount');
         const downloadAllBtn = document.getElementById('downloadAllBtn');
+
+        // Elementos manuais
+        const manualContacts = document.getElementById('manualContacts');
+        const addManualBtn = document.getElementById('addManualBtn');
+        const clearManualBtn = document.getElementById('clearManualBtn');
+        const manualStatus = document.getElementById('manualStatus');
 
         // Event Listeners
         document.addEventListener('DOMContentLoaded', function() {
@@ -678,27 +738,29 @@
             // Baixar todos os links
             downloadAllBtn.addEventListener('click', downloadAllLinks);
             
+            // Adicionar contatos manuais
+            addManualBtn.addEventListener('click', addManualContacts);
+            clearManualBtn.addEventListener('click', clearManualContactsHandler);
+            
             // Validar campos obrigatórios em tempo real
             document.getElementById('messageTemplate').addEventListener('input', validateForm);
             document.getElementById('shareableLink').addEventListener('input', validateForm);
         });
 
-        // Função para lidar com a seleção de arquivo
+        // ========== FUNÇÕES DE ARQUIVO ==========
+
         function handleFileSelect(e) {
             const file = e.target.files[0];
             if (!file) return;
             
             currentFile = file;
             
-            // Atualizar informações do arquivo
             fileName.textContent = file.name;
             fileSize.textContent = formatFileSize(file.size);
             
-            // Processar o arquivo
             processFile(file);
         }
 
-        // Função para processar o arquivo (CSV ou Excel)
         function processFile(file) {
             const reader = new FileReader();
             
@@ -707,7 +769,6 @@
                     const data = e.target.result;
                     let contactsData = [];
                     
-                    // Verificar extensão do arquivo
                     if (file.name.endsWith('.csv')) {
                         contactsData = parseCSV(data);
                     } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
@@ -717,13 +778,11 @@
                         return;
                     }
                     
-                    // Validar estrutura do arquivo
                     if (!contactsData || contactsData.length === 0) {
                         showError('O arquivo está vazio ou não pôde ser processado.');
                         return;
                     }
                     
-                    // Verificar se tem as colunas necessárias
                     const firstRow = contactsData[0];
                     const hasName = 'name' in firstRow || 'Name' in firstRow || 'nome' in firstRow || 'Nome' in firstRow;
                     const hasPhone = 'phoneNumber' in firstRow || 'Phone' in firstRow || 'phone' in firstRow || 'telefone' in firstRow;
@@ -733,7 +792,6 @@
                         return;
                     }
                     
-                    // Normalizar os dados (garantir lowercase nas chaves)
                     contacts = contactsData.map(row => {
                         const normalizedRow = {};
                         for (const key in row) {
@@ -750,15 +808,8 @@
                     }).filter(row => row.name && row.phoneNumber);
                     
                     // Atualizar UI
-                    contactCount.textContent = contacts.length;
-                    fileInfo.classList.remove('hidden');
-                    previewTable.classList.remove('hidden');
-                    
-                    // Limpar mensagem de erro
+                    updateUIAfterContactsChange();
                     clearError();
-                    
-                    // Atualizar pré-visualização da tabela
-                    updateContactsPreview();
                     
                 } catch (error) {
                     console.error('Erro ao processar arquivo:', error);
@@ -770,7 +821,6 @@
                 showError('Erro ao ler o arquivo. Tente novamente.');
             };
             
-            // Ler o arquivo dependendo do tipo
             if (file.name.endsWith('.csv')) {
                 reader.readAsText(file);
             } else {
@@ -778,7 +828,6 @@
             }
         }
 
-        // Função para analisar CSV
         function parseCSV(data) {
             const lines = data.split('\n');
             const headers = lines[0].split(',').map(h => h.trim());
@@ -793,64 +842,55 @@
             });
         }
 
-        // Função para analisar Excel
         function parseExcel(data) {
             const workbook = XLSX.read(data, { type: 'array' });
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
             return XLSX.utils.sheet_to_json(firstSheet);
         }
 
-        // Função para formatar número de telefone
-        function formatPhoneNumber(phone) {
-            // Remover tudo que não é dígito
-            let cleaned = phone.toString().replace(/\D/g, '');
+        // ========== FUNÇÕES DE CONTATO ==========
+
+        function getAllContacts() {
+            return [...contacts, ...manualContactsList];
+        }
+
+        function updateUIAfterContactsChange() {
+            const allContacts = getAllContacts();
+            contactCount.textContent = allContacts.length;
             
-            // Se não começar com código do país, assumir Brasil (55)
-            if (cleaned.length === 10 || cleaned.length === 11) {
-                cleaned = '55' + cleaned;
+            if (allContacts.length > 0) {
+                fileInfo.classList.remove('hidden');
+                previewTable.classList.remove('hidden');
+                updateContactsPreview();
+            } else {
+                fileInfo.classList.add('hidden');
+                previewTable.classList.add('hidden');
+                // Se não houver contatos, esconder resultados também
+                resultsSection.classList.add('hidden');
             }
-            
-            return cleaned;
         }
 
-        // Função para formatar tamanho do arquivo
-        function formatFileSize(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
-
-        // Função para atualizar a pré-visualização dos contatos
         function updateContactsPreview() {
+            const allContacts = getAllContacts();
             contactsTableBody.innerHTML = '';
             
-            // Mostrar apenas os primeiros 10 contatos para pré-visualização
-            const previewContacts = contacts.slice(0, 10);
-            
+            const previewContacts = allContacts.slice(0, 10);
             previewContacts.forEach(contact => {
                 const row = document.createElement('tr');
-                
                 const nameCell = document.createElement('td');
                 nameCell.textContent = contact.name;
-                
                 const phoneCell = document.createElement('td');
                 phoneCell.textContent = contact.phoneNumber;
-                
                 row.appendChild(nameCell);
                 row.appendChild(phoneCell);
                 contactsTableBody.appendChild(row);
             });
             
-            // Se houver mais contatos, mostrar um indicador
-            if (contacts.length > 10) {
+            if (allContacts.length > 10) {
                 const row = document.createElement('tr');
                 const cell = document.createElement('td');
                 cell.colSpan = 2;
-                cell.textContent = `... e mais ${contacts.length - 10} contatos`;
+                cell.textContent = `... e mais ${allContacts.length - 10} contatos`;
                 cell.style.fontStyle = 'italic';
                 cell.style.color = '#7f8c8d';
                 row.appendChild(cell);
@@ -858,18 +898,76 @@
             }
         }
 
-        // Função para limpar o arquivo carregado
-        function clearFile() {
-            fileInput.value = '';
-            contacts = [];
-            currentFile = null;
-            
-            fileInfo.classList.add('hidden');
-            previewTable.classList.add('hidden');
-            resultsSection.classList.add('hidden');
+        function formatPhoneNumber(phone) {
+            let cleaned = phone.toString().replace(/\D/g, '');
+            if (cleaned.length === 10 || cleaned.length === 11) {
+                cleaned = '55' + cleaned;
+            }
+            return cleaned;
         }
 
-        // Função para validar o formulário
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // ========== FUNÇÕES MANUAIS ==========
+
+        function addManualContacts() {
+            const rawText = manualContacts.value.trim();
+            if (!rawText) {
+                manualStatus.textContent = 'Digite pelo menos um contato.';
+                manualStatus.className = 'note error';
+                return;
+            }
+            
+            const lines = rawText.split('\n').filter(line => line.trim() !== '');
+            const newContacts = [];
+            let hasError = false;
+            
+            lines.forEach((line, index) => {
+                const parts = line.split(',').map(s => s.trim());
+                if (parts.length < 2) {
+                    manualStatus.textContent = `Linha ${index+1}: formato inválido (use Nome,Telefone)`;
+                    manualStatus.className = 'note error';
+                    hasError = true;
+                    return;
+                }
+                const name = parts[0];
+                let phone = parts.slice(1).join(',').trim();
+                phone = formatPhoneNumber(phone);
+                if (!phone) {
+                    manualStatus.textContent = `Linha ${index+1}: telefone inválido.`;
+                    manualStatus.className = 'note error';
+                    hasError = true;
+                    return;
+                }
+                newContacts.push({ name, phoneNumber: phone });
+            });
+            
+            if (hasError) return;
+            
+            manualContactsList = [...manualContactsList, ...newContacts];
+            manualStatus.textContent = `${newContacts.length} contato(s) adicionado(s) com sucesso! Total manual: ${manualContactsList.length}`;
+            manualStatus.className = 'note';
+            manualContacts.value = '';
+            
+            updateUIAfterContactsChange();
+        }
+
+        function clearManualContactsHandler() {
+            manualContactsList = [];
+            manualContacts.value = '';
+            manualStatus.textContent = 'Contatos manuais removidos.';
+            manualStatus.className = 'note';
+            updateUIAfterContactsChange();
+        }
+
+        // ========== FUNÇÕES DE VALIDAÇÃO E GERAÇÃO ==========
+
         function validateForm() {
             const messageTemplate = document.getElementById('messageTemplate').value.trim();
             const shareableLink = document.getElementById('shareableLink').value.trim();
@@ -882,8 +980,8 @@
             } else if (!shareableLink) {
                 showError('O link compartilhável é obrigatório.');
                 isValid = false;
-            } else if (contacts.length === 0) {
-                showError('Carregue um arquivo de contatos primeiro.');
+            } else if (getAllContacts().length === 0) {
+                showError('Carregue um arquivo de contatos ou adicione contatos manualmente.');
                 isValid = false;
             } else {
                 clearError();
@@ -892,44 +990,29 @@
             return isValid;
         }
 
-        // Função para gerar links do WhatsApp
         function generateLinks() {
-            // Validar formulário
             if (!validateForm()) return;
             
-            // Obter valores dos campos
             const whatsappNumber = document.getElementById('whatsappNumber').value.trim();
             const messageTemplate = document.getElementById('messageTemplate').value.trim();
             const additionalMessage = document.getElementById('additionalMessage').value.trim();
             const shareableLink = document.getElementById('shareableLink').value.trim();
+            const allContacts = getAllContacts();
             
-            // Limpar resultados anteriores
             resultsList.innerHTML = '';
             
-            // Gerar links para cada contato
-            const generatedLinks = contacts.map(contact => {
-                // Substituir {name} pelo nome do contato
+            const generatedLinks = allContacts.map(contact => {
                 let message = messageTemplate.replace(/{name}/g, contact.name);
-                
-                // Adicionar mensagem adicional se fornecida
                 if (additionalMessage) {
                     message += '\n\n' + additionalMessage;
                 }
-                
-                // Adicionar link compartilhável
                 message += '\n\n' + shareableLink;
                 
-                // Codificar mensagem para URL
                 const encodedMessage = encodeURIComponent(message);
-                
-                // Criar link do WhatsApp
                 let phoneToUse = whatsappNumber || contact.phoneNumber;
-                
-                // Garantir que o número tenha o formato correto
                 if (!phoneToUse.startsWith('55') && !phoneToUse.startsWith('+')) {
                     phoneToUse = '55' + phoneToUse.replace(/\D/g, '');
                 }
-                
                 const whatsappUrl = `https://wa.me/${phoneToUse}?text=${encodedMessage}`;
                 
                 return {
@@ -940,20 +1023,15 @@
                 };
             });
             
-            // Exibir resultados
             displayResults(generatedLinks);
         }
 
-        // Função para exibir resultados
         function displayResults(links) {
-            // Atualizar contagem
             resultsCount.innerHTML = `Foram gerados <span>${links.length}</span> links`;
             
-            // Adicionar cada link à lista
             links.forEach(link => {
                 const linkElement = document.createElement('div');
                 linkElement.className = 'result-item';
-                
                 linkElement.innerHTML = `
                     <div class="contact-name">${link.name}</div>
                     <div class="phone-number">${link.phone}</div>
@@ -961,27 +1039,19 @@
                         <i class="fab fa-whatsapp"></i> Abrir no WhatsApp
                     </a>
                 `;
-                
                 resultsList.appendChild(linkElement);
             });
             
-            // Mostrar seção de resultados
             resultsSection.classList.remove('hidden');
-            
-            // Rolagem suave para resultados
             resultsSection.scrollIntoView({ behavior: 'smooth' });
         }
 
-        // Função para baixar todos os links como CSV
         function downloadAllLinks() {
             const links = [];
-            
-            // Coletar todos os links da lista
             document.querySelectorAll('.result-item').forEach(item => {
                 const name = item.querySelector('.contact-name').textContent;
                 const phone = item.querySelector('.phone-number').textContent;
                 const url = item.querySelector('.whatsapp-link').href;
-                
                 links.push({ name, phone, url });
             });
             
@@ -990,44 +1060,51 @@
                 return;
             }
             
-            // Criar conteúdo CSV
             let csvContent = 'Nome,Telefone,Link WhatsApp\n';
-            
             links.forEach(link => {
                 csvContent += `"${link.name}","${link.phone}","${link.url}"\n`;
             });
             
-            // Criar blob e link para download
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
-            
             link.href = url;
             link.download = `links_whatsapp_${new Date().toISOString().slice(0,10)}.csv`;
             link.style.display = 'none';
-            
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
         }
 
-        // Função para exibir mensagens de erro
+        // ========== FUNÇÕES DE LIMPEZA E UTILITÁRIOS ==========
+
+        function clearFile() {
+            fileInput.value = '';
+            contacts = [];
+            currentFile = null;
+            
+            // Opcional: também limpar manuais? Vamos manter os manuais, mas pode ser alterado.
+            // Se quiser limpar tudo, descomente a linha abaixo:
+            // manualContactsList = [];
+            // manualContacts.value = '';
+            // manualStatus.textContent = '';
+            
+            updateUIAfterContactsChange();
+            resultsSection.classList.add('hidden');
+        }
+
         function showError(message) {
             errorMessage.textContent = message;
             errorMessage.classList.remove('hidden');
-            
-            // Ocultar após 5 segundos
             setTimeout(clearError, 5000);
         }
 
-        // Função para limpar mensagens de erro
         function clearError() {
             errorMessage.textContent = '';
             errorMessage.classList.add('hidden');
         }
 
-        // Função para limpar todos os campos
         function resetForm() {
             clearFile();
             document.getElementById('whatsappNumber').value = '';
@@ -1038,7 +1115,7 @@
             clearError();
         }
 
-        // Expor funções para uso global (para debug)
+        // Expor funções para debug
         window.resetForm = resetForm;
     </script>
 </body>
